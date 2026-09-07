@@ -84,7 +84,7 @@ class PreferencesWindow(Adw.Window):
         color_box.append(self.color_button)
         right_box.append(color_box)
 
-        apps_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        apps_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         apps_label = Gtk.Label(label="Applications to launch", halign=Gtk.Align.START, hexpand=True)
         apps_label.add_css_class("heading")
         apps_header.append(apps_label)
@@ -261,7 +261,9 @@ class PreferencesWindow(Adw.Window):
             return
         for i, app in enumerate(self.current_session.get("apps", [])):
             row = Adw.ActionRow(title=escape(app["name"]))
+            row.set_title_lines(1)
             row.set_subtitle(escape(app["description"] or app["command"]))
+            row.set_subtitle_lines(1)
             row.set_tooltip_text(app["command"])
             if not app["active"]:
                 row.add_css_class("dim-label")
@@ -395,6 +397,8 @@ class PreferencesWindow(Adw.Window):
             for e in entries:
                 subtitle = e.get("description") or e["command"]
                 row = Adw.ActionRow(title=escape(e["name"]), subtitle=escape(subtitle))
+                row.set_title_lines(1)
+                row.set_subtitle_lines(1)
                 check = Gtk.CheckButton(valign=Gtk.Align.CENTER)
                 if e["command"] in existing:
                     check.set_active(True)
@@ -490,6 +494,8 @@ class PreferencesWindow(Adw.Window):
         for e in entries:
             subtitle = e.get("description") or e["command"]
             row = Adw.ActionRow(title=escape(e["name"]), subtitle=escape(subtitle))
+            row.set_title_lines(1)
+            row.set_subtitle_lines(1)
             if e["icon"] is not None:
                 row.add_prefix(Gtk.Image.new_from_gicon(e["icon"]))
             check = Gtk.CheckButton(valign=Gtk.Align.CENTER)
