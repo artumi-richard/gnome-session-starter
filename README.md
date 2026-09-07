@@ -16,25 +16,25 @@ want, then launches the apps configured for that session and exits.
 - Each app in a session has a name, a description, and a command, plus a
   switch to mark it inactive — an inactive app stays in the list (so you
   don't lose the command) but is skipped when the session launches. Every
-  app row has edit (rename/change command/description), reorder, and
-  remove buttons.
+  app row has edit (rename/change command/description) and remove buttons.
+- "Add Application" in the session editor opens a dialog with two tabs:
+  - **From Application List** — a searchable list of everything GNOME's own
+    app grid would show (from `Gio.AppInfo`, so it covers system, Flatpak,
+    and Snap apps too), with the exact command each one actually launches
+    and its description already filled in. This is the fix for something
+    like a Steam game (e.g. Dwarf Fortress) that shows up in the app grid
+    but has no matching binary on `$PATH` — its real launch command turns
+    out to be something like `steam steam://rungameid/975370`, which this
+    list surfaces for you instead of you having to go hunting for it.
+  - **Manually Enter Details** — type a name, command, and description by
+    hand, for one-off or custom commands that aren't in the app list.
 - "Import from Startup Applications…" in the session editor — pulls entries
-  from `~/.config/autostart/*.desktop` (the same list GNOME's own Startup
-  Applications tool manages) so you don't have to retype commands for apps
-  you've already got set up there. Things you always want regardless of
-  session (an autostart daemon like Atuin, say) can stay in GNOME's Startup
-  Applications untouched; everything session-specific goes into a session
-  here instead.
-- "Add Installed Application…" in the session editor — a searchable list of
-  everything GNOME's own app grid would show (from `Gio.AppInfo`, so it
-  covers system, Flatpak, and Snap apps too), with the exact command each
-  one actually launches. This is the fix for something like a Steam game
-  (e.g. Dwarf Fortress) that shows up in the app grid but has no matching
-  binary on `$PATH` — its real launch command turns out to be something
-  like `steam steam://rungameid/975370`, which this list surfaces for you
-  instead of you having to go hunting for it.
-- Both importers carry across each app's description too (the `Comment=`
-  field from its `.desktop` entry), so you don't have to write your own.
+  (with their descriptions) from `~/.config/autostart/*.desktop` (the same
+  list GNOME's own Startup Applications tool manages) so you don't have to
+  retype commands for apps you've already got set up there. Things you
+  always want regardless of session (an autostart daemon like Atuin, say)
+  can stay in GNOME's Startup Applications untouched; everything
+  session-specific goes into a session here instead.
 
 ## Requirements
 
@@ -53,10 +53,11 @@ Config is stored at `~/.config/gnome-session-starter/sessions.json`.
 
 ### Launching something that isn't a plain app
 
-The "Command to launch" field (and each imported/added entry) is just a
-shell command run directly — it doesn't have to be a bare app name. For
-something like opening a terminal running an editor, e.g. neovim inside
-kitty, type the terminal's `-e`/exec flag and the program as one command:
+An app's command (whether typed in "Manually Enter Details" or edited
+afterwards) is just a shell command run directly — it doesn't have to be a
+bare app name. For something like opening a terminal running an editor,
+e.g. neovim inside kitty, type the terminal's `-e`/exec flag and the
+program as one command:
 
 ```
 kitty -e nvim

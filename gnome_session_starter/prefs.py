@@ -88,9 +88,9 @@ class PreferencesWindow(Adw.Window):
         apps_label = Gtk.Label(label="Applications to launch", halign=Gtk.Align.START, hexpand=True)
         apps_label.add_css_class("heading")
         apps_header.append(apps_label)
-        add_installed_btn = Gtk.Button(label="Add Installed Application…")
-        add_installed_btn.connect("clicked", self.on_add_installed_clicked)
-        apps_header.append(add_installed_btn)
+        add_app_btn = Gtk.Button(label="Add Application")
+        add_app_btn.connect("clicked", self.on_add_application_clicked)
+        apps_header.append(add_app_btn)
         import_btn = Gtk.Button(label="Import from Startup Applications…")
         import_btn.connect("clicked", self.on_import_clicked)
         apps_header.append(import_btn)
@@ -102,16 +102,6 @@ class PreferencesWindow(Adw.Window):
         app_scroller.set_child(self.app_listbox)
         app_scroller.set_vexpand(True)
         right_box.append(app_scroller)
-
-        app_entry_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        self.app_entry = Gtk.Entry(hexpand=True)
-        self.app_entry.set_placeholder_text("Command to launch, e.g. firefox or steam")
-        self.app_entry.connect("activate", self.on_add_app)
-        add_app_btn = Gtk.Button(label="Add")
-        add_app_btn.connect("clicked", self.on_add_app)
-        app_entry_box.append(self.app_entry)
-        app_entry_box.append(add_app_btn)
-        right_box.append(app_entry_box)
 
         self.right_box = right_box
         right_box.set_sensitive(False)
@@ -286,30 +276,16 @@ class PreferencesWindow(Adw.Window):
             edit_btn.add_css_class("flat")
             edit_btn.set_tooltip_text("Edit")
             edit_btn.connect("clicked", self.on_edit_app, i)
-            up_btn = Gtk.Button(icon_name="go-up-symbolic", valign=Gtk.Align.CENTER)
-            up_btn.add_css_class("flat")
-            up_btn.connect("clicked", self.on_move_app, i, -1)
-            down_btn = Gtk.Button(icon_name="go-down-symbolic", valign=Gtk.Align.CENTER)
-            down_btn.add_css_class("flat")
-            down_btn.connect("clicked", self.on_move_app, i, 1)
             remove_btn = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER)
             remove_btn.add_css_class("flat")
             remove_btn.set_tooltip_text("Remove")
             remove_btn.connect("clicked", self.on_remove_app, i)
             row.add_suffix(edit_btn)
-            row.add_suffix(up_btn)
-            row.add_suffix(down_btn)
             row.add_suffix(remove_btn)
             self.app_listbox.append(row)
 
-    def on_add_app(self, _widget):
-        if self.current_session is None:
-            return
-        cmd = self.app_entry.get_text().strip()
-        if not cmd:
-            return
-        self.current_session.setdefault("apps", []).append(config.new_app(cmd))
-        self.app_entry.set_text("")
+    def _add_app(self, app):
+        self.current_session.setdefault("apps", []).append(app)
         config.save(self.data)
         self.refresh_app_list()
 
@@ -317,14 +293,6 @@ class PreferencesWindow(Adw.Window):
         apps = self.current_session.get("apps", [])
         if 0 <= index < len(apps):
             del apps[index]
-            config.save(self.data)
-            self.refresh_app_list()
-
-    def on_move_app(self, _button, index, delta):
-        apps = self.current_session.get("apps", [])
-        new_index = index + delta
-        if 0 <= new_index < len(apps):
-            apps[index], apps[new_index] = apps[new_index], apps[index]
             config.save(self.data)
             self.refresh_app_list()
 
@@ -470,17 +438,15 @@ class PreferencesWindow(Adw.Window):
         config.save(self.data)
         self.refresh_app_list()
 
-    def on_add_installed_clicked(self, _button):
+    def on_add_application_clicked(self, _button):
         if self.current_session is None:
             return
-        entries = installed_apps.list_installed_apps()
-        existing = {a["command"] for a in self.current_session.get("apps", [])}
 
         dialog = Adw.Window(
             application=self.get_application(),
             transient_for=self,
             modal=True,
-            title="Add Installed Application",
+            title="Add Application",
         )
         dialog.set_default_size(480, 560)
 
@@ -488,6 +454,25 @@ class PreferencesWindow(Adw.Window):
         header = Adw.HeaderBar()
         toolbar_view.add_top_bar(header)
         dialog.set_content(toolbar_view)
+
+        stack = Gtk.Stack()
+        switcher = Gtk.StackSwitcher(stack=stack, halign=Gtk.Align.CENTER)
+        switcher.set_margin_top(6)
+        header.set_title_widget(switcher)
+
+        stack.add_titled(
+            self._build_from_list_page(dialog), "list", "From Application List"
+        )
+        stack.add_titled(
+            self._build_manual_entry_page(dialog), "manual", "Manually Enter Details"
+        )
+        toolbar_view.set_content(stack)
+
+        dialog.present()
+
+    def _build_from_list_page(self, dialog):
+        entries = installed_apps.list_installed_apps()
+        existing = {a["command"] for a in self.current_session.get("apps", [])}
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         content.set_margin_top(12)
@@ -546,6 +531,45 @@ class PreferencesWindow(Adw.Window):
         button_box.append(add_btn)
         content.append(button_box)
 
-        toolbar_view.set_content(content)
-        dialog.present()
-        search.grab_focus()
+        return content
+
+    def _build_manual_entry_page(self, dialog):
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+
+        name_row = Adw.EntryRow(title="Name")
+        command_row = Adw.EntryRow(title="Command")
+        description_row = Adw.EntryRow(title="Description")
+        group = Adw.PreferencesGroup()
+        group.add(name_row)
+        group.add(command_row)
+        group.add(description_row)
+        content.append(group)
+
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, halign=Gtk.Align.END)
+        button_box.set_valign(Gtk.Align.END)
+        button_box.set_vexpand(True)
+        cancel_btn = Gtk.Button(label="Cancel")
+        cancel_btn.connect("clicked", lambda _b: dialog.close())
+        add_btn = Gtk.Button(label="Add")
+        add_btn.add_css_class("suggested-action")
+
+        def confirm(_b):
+            command = command_row.get_text().strip()
+            if not command:
+                return
+            name = name_row.get_text().strip() or command
+            description = description_row.get_text().strip()
+            self._add_app(config.new_app(command, name=name, description=description))
+            dialog.close()
+
+        add_btn.connect("clicked", confirm)
+        command_row.connect("entry-activated", confirm)
+        button_box.append(cancel_btn)
+        button_box.append(add_btn)
+        content.append(button_box)
+
+        return content
