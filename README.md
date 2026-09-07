@@ -35,9 +35,26 @@ Config is stored at `~/.config/gnome-session-starter/sessions.json`.
 
 ## Install as a Startup Application
 
-Copy (or symlink) `gnome-session-starter.desktop` into
-`~/.config/autostart/` so it runs once at login instead of everything in
-GNOME's Startup Applications list:
+This app is meant to *replace* Startup Applications for everything that's
+session-specific — but it still needs to be launched by Startup Applications
+itself, alongside anything you genuinely want running on every login
+regardless of session (a background daemon like Atuin, say). So the setup
+is:
+
+1. Add **Session Starter** itself as an entry in GNOME's Startup
+   Applications tool (search "Startup Applications" in Activities, or run
+   `gnome-session-properties`), pointing at this checkout's
+   `gnome-session-starter` script.
+2. Leave any always-needed apps (Atuin, etc.) as their own separate entries
+   there too.
+3. Move everything else — the apps that differ per session — out of Startup
+   Applications and into a session here (use "Import from Startup
+   Applications…" in the session editor to pull them across without
+   retyping commands).
+
+You can add the entry through the Startup Applications GUI directly (Add →
+browse to `gnome-session-starter.desktop`), or install the `.desktop` file
+for it to pick up:
 
 ```
 mkdir -p ~/.config/autostart
