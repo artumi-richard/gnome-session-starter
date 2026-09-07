@@ -1,18 +1,11 @@
 """Read GNOME's Startup Applications list (~/.config/autostart/*.desktop)."""
 import configparser
 import os
-import re
 from pathlib import Path
 
+from .desktop_entries import clean_exec
+
 AUTOSTART_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "autostart"
-
-# XDG desktop-entry field codes (%f, %U, ...) don't apply to us; strip them.
-_FIELD_CODE_RE = re.compile(r"%[fFuUdDnNickvm]")
-
-
-def _clean_exec(exec_value):
-    cleaned = _FIELD_CODE_RE.sub("", exec_value)
-    return " ".join(cleaned.split())
 
 
 def list_entries():
@@ -41,6 +34,6 @@ def list_entries():
             continue
 
         name = section.get("Name", "").strip() or path.stem
-        entries.append({"name": name, "command": _clean_exec(exec_value)})
+        entries.append({"name": name, "command": clean_exec(exec_value)})
 
     return entries

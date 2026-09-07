@@ -5,8 +5,8 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gtk
 
-from . import autostart, config
-from .widgets import color_swatch
+from . import autostart, config, installed_apps
+from .widgets import color_swatch, escape
 
 
 class PreferencesWindow(Adw.Window):
@@ -88,6 +88,9 @@ class PreferencesWindow(Adw.Window):
         apps_label = Gtk.Label(label="Applications to launch", halign=Gtk.Align.START, hexpand=True)
         apps_label.add_css_class("heading")
         apps_header.append(apps_label)
+        add_installed_btn = Gtk.Button(label="Add Installed Application…")
+        add_installed_btn.connect("clicked", self.on_add_installed_clicked)
+        apps_header.append(add_installed_btn)
         import_btn = Gtk.Button(label="Import from Startup Applications…")
         import_btn.connect("clicked", self.on_import_clicked)
         apps_header.append(import_btn)
@@ -123,7 +126,7 @@ class PreferencesWindow(Adw.Window):
         default_name = self.data.get("default_session")
         row_to_select = None
         for s in self.data["sessions"]:
-            row = Adw.ActionRow(title=s["name"])
+            row = Adw.ActionRow(title=escape(s["name"]))
             if s["name"] == default_name:
                 row.set_subtitle("Default")
             row.add_prefix(color_swatch(s.get("color")))
@@ -237,7 +240,7 @@ class PreferencesWindow(Adw.Window):
         # cursor and steal focus on every keystroke).
         row = self.session_listbox.get_selected_row()
         if row is not None:
-            row.set_title(new_name)
+            row.set_title(escape(new_name))
 
     def on_default_toggled(self, check):
         if self.current_session is None:
@@ -267,7 +270,7 @@ class PreferencesWindow(Adw.Window):
         if self.current_session is None:
             return
         for i, app in enumerate(self.current_session.get("apps", [])):
-            row = Adw.ActionRow(title=app)
+            row = Adw.ActionRow(title=escape(app))
             up_btn = Gtk.Button(icon_name="go-up-symbolic", valign=Gtk.Align.CENTER)
             up_btn.add_css_class("flat")
             up_btn.connect("clicked", self.on_move_app, i, -1)
@@ -343,12 +346,12 @@ class PreferencesWindow(Adw.Window):
             listbox.add_css_class("boxed-list")
             checks = []
             for e in entries:
-                row = Adw.ActionRow(title=e["name"], subtitle=e["command"])
+                row = Adw.ActionRow(title=escape(e["name"]), subtitle=escape(e["command"]))
                 check = Gtk.CheckButton(valign=Gtk.Align.CENTER)
                 if e["command"] in existing:
                     check.set_active(True)
                     check.set_sensitive(False)
-                    row.set_subtitle(f"{e['command']} (already added)")
+                    row.set_subtitle(escape(f"{e['command']} (already added)"))
                 row.add_prefix(check)
                 row.set_activatable_widget(check)
                 listbox.append(row)
@@ -372,10 +375,92 @@ class PreferencesWindow(Adw.Window):
         dialog.present()
 
     def on_import_confirmed(self, dialog, checks):
+        self._add_checked_commands(checks)
+        dialog.close()
+
+    def _add_checked_commands(self, checks):
         apps = self.current_session.setdefault("apps", [])
         for check, entry in checks:
             if check.get_active() and check.get_sensitive() and entry["command"] not in apps:
                 apps.append(entry["command"])
         config.save(self.data)
         self.refresh_app_list()
-        dialog.close()
+
+    def on_add_installed_clicked(self, _button):
+        if self.current_session is None:
+            return
+        entries = installed_apps.list_installed_apps()
+        existing = set(self.current_session.get("apps", []))
+
+        dialog = Adw.Window(
+            application=self.get_application(),
+            transient_for=self,
+            modal=True,
+            title="Add Installed Application",
+        )
+        dialog.set_default_size(480, 560)
+
+        toolbar_view = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        toolbar_view.add_top_bar(header)
+        dialog.set_content(toolbar_view)
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+
+        search = Gtk.SearchEntry()
+        search.set_placeholder_text("Search installed applications…")
+        content.append(search)
+
+        listbox = Gtk.ListBox()
+        listbox.add_css_class("boxed-list")
+        checks = []
+        for e in entries:
+            row = Adw.ActionRow(title=escape(e["name"]), subtitle=escape(e["command"]))
+            if e["icon"] is not None:
+                row.add_prefix(Gtk.Image.new_from_gicon(e["icon"]))
+            check = Gtk.CheckButton(valign=Gtk.Align.CENTER)
+            if e["command"] in existing:
+                check.set_active(True)
+                check.set_sensitive(False)
+                row.set_subtitle(escape(f"{e['command']} (already added)"))
+            row.add_prefix(check)
+            row.set_activatable_widget(check)
+            listbox.append(row)
+            checks.append((check, e))
+
+        def filter_func(row):
+            query = search.get_text().strip().lower()
+            if not query:
+                return True
+            return query in checks[row.get_index()][1]["name"].lower()
+
+        listbox.set_filter_func(filter_func)
+        search.connect("search-changed", lambda _e: listbox.invalidate_filter())
+
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_child(listbox)
+        scroller.set_vexpand(True)
+        content.append(scroller)
+
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, halign=Gtk.Align.END)
+        cancel_btn = Gtk.Button(label="Cancel")
+        cancel_btn.connect("clicked", lambda _b: dialog.close())
+        add_btn = Gtk.Button(label="Add Selected")
+        add_btn.add_css_class("suggested-action")
+
+        def confirm(_b):
+            self._add_checked_commands(checks)
+            dialog.close()
+
+        add_btn.connect("clicked", confirm)
+        button_box.append(cancel_btn)
+        button_box.append(add_btn)
+        content.append(button_box)
+
+        toolbar_view.set_content(content)
+        dialog.present()
+        search.grab_focus()

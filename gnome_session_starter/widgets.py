@@ -2,7 +2,12 @@
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gdk, Gtk
+from gi.repository import Gdk, GLib, Gtk
+
+
+def escape(text):
+    """Escape text for use as Adw.ActionRow title/subtitle, which parse Pango markup."""
+    return GLib.markup_escape_text(text)
 
 _provider = Gtk.CssProvider()
 _provider_installed = False

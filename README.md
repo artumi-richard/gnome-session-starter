@@ -20,6 +20,14 @@ want, then launches the apps configured for that session and exits.
   session (an autostart daemon like Atuin, say) can stay in GNOME's Startup
   Applications untouched; everything session-specific goes into a session
   here instead.
+- "Add Installed Application…" in the session editor — a searchable list of
+  everything GNOME's own app grid would show (from `Gio.AppInfo`, so it
+  covers system, Flatpak, and Snap apps too), with the exact command each
+  one actually launches. This is the fix for something like a Steam game
+  (e.g. Dwarf Fortress) that shows up in the app grid but has no matching
+  binary on `$PATH` — its real launch command turns out to be something
+  like `steam steam://rungameid/975370`, which this list surfaces for you
+  instead of you having to go hunting for it.
 
 ## Requirements
 
@@ -35,6 +43,22 @@ want, then launches the apps configured for that session and exits.
 ```
 
 Config is stored at `~/.config/gnome-session-starter/sessions.json`.
+
+### Launching something that isn't a plain app
+
+The "Command to launch" field (and each imported/added entry) is just a
+shell command run directly — it doesn't have to be a bare app name. For
+something like opening a terminal running an editor, e.g. neovim inside
+kitty, type the terminal's `-e`/exec flag and the program as one command:
+
+```
+kitty -e nvim
+kitty -e nvim ~/some/project
+```
+
+Each session app is launched independently (not through a shell), so
+pipes/`&&`/env vars written directly in the field won't work — but a
+single command with arguments like the above does.
 
 ## Install as a Startup Application
 

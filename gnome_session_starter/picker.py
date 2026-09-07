@@ -7,7 +7,7 @@ from gi.repository import Adw, Gdk, Gtk, GLib
 
 from . import config
 from .launch import launch_session
-from .widgets import color_swatch
+from .widgets import color_swatch, escape
 
 _GRADIENT_CSS = b"""
 window.session-starter {
@@ -96,7 +96,7 @@ class PickerWindow(Adw.ApplicationWindow):
         default_name = config.default_session_name(self.data)
         default_row = None
         for s in self.sessions:
-            row = Adw.ActionRow(title=s["name"])
+            row = Adw.ActionRow(title=escape(s["name"]))
             row.set_subtitle(f"{len(s.get('apps', []))} app(s)")
             row.add_prefix(color_swatch(s.get("color")))
             if s["name"] == default_name:
