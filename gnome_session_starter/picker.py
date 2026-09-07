@@ -7,12 +7,28 @@ from gi.repository import Adw, Gdk, Gtk, GLib
 
 from . import config
 from .launch import launch_session
+from .widgets import color_swatch
+
+_GRADIENT_CSS = b"""
+window.session-starter {
+    background-image: linear-gradient(160deg, #3584e4 0%, #1a5fb4 55%, #0b3a80 100%);
+}
+"""
+
+
+def _install_gradient_css():
+    provider = Gtk.CssProvider()
+    provider.load_from_data(_GRADIENT_CSS)
+    Gtk.StyleContext.add_provider_for_display(
+        Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    )
 
 
 class PickerWindow(Adw.ApplicationWindow):
     def __init__(self, app, data):
         super().__init__(application=app, title="Launch Session")
-        self.set_default_size(360, 420)
+        self.add_css_class("session-starter")
+        self.set_default_size(540, 630)
         self.data = data
         self.sessions = data["sessions"]
 
@@ -20,6 +36,7 @@ class PickerWindow(Adw.ApplicationWindow):
         header = Adw.HeaderBar()
         header.set_show_end_title_buttons(False)
         header.set_show_start_title_buttons(False)
+        header.add_css_class("flat")
         self.toolbar_view.add_top_bar(header)
 
         # pack_end() inserts each new widget before the previous ones, so pack
@@ -43,6 +60,26 @@ class PickerWindow(Adw.ApplicationWindow):
         self.listbox.set_margin_end(12)
         self.listbox.connect("row-activated", self.on_row_activated)
 
+        # Build the two possible content states once, up front, and just
+        # switch between them on reload - creating fresh ScrolledWindow/
+        # StatusPage wrappers each time and re-parenting self.listbox into
+        # them is what caused the list to intermittently vanish (GTK4 won't
+        # silently re-parent a widget that already has a parent).
+        self.scroller = Gtk.ScrolledWindow()
+        self.scroller.set_child(self.listbox)
+        self.scroller.set_vexpand(True)
+
+        self.status_page = Adw.StatusPage(
+            title="No sessions configured",
+            description="Add a session in Preferences.",
+            icon_name="preferences-system-symbolic",
+        )
+
+        self.stack = Gtk.Stack()
+        self.stack.add_named(self.scroller, "sessions")
+        self.stack.add_named(self.status_page, "empty")
+        self.toolbar_view.set_content(self.stack)
+
         self.set_content(self.toolbar_view)
         self.build_session_list()
 
@@ -61,24 +98,17 @@ class PickerWindow(Adw.ApplicationWindow):
         for s in self.sessions:
             row = Adw.ActionRow(title=s["name"])
             row.set_subtitle(f"{len(s.get('apps', []))} app(s)")
-            row.session = s
+            row.add_prefix(color_swatch(s.get("color")))
             if s["name"] == default_name:
-                row.add_css_class("accent")
+                row.add_suffix(Gtk.Image(icon_name="starred-symbolic"))
                 default_row = row
+            row.session = s
             self.listbox.append(row)
 
         if not self.sessions:
-            status = Adw.StatusPage(
-                title="No sessions configured",
-                description="Add a session in Preferences.",
-                icon_name="preferences-system-symbolic",
-            )
-            self.toolbar_view.set_content(status)
+            self.stack.set_visible_child_name("empty")
         else:
-            scroller = Gtk.ScrolledWindow()
-            scroller.set_child(self.listbox)
-            scroller.set_vexpand(True)
-            self.toolbar_view.set_content(scroller)
+            self.stack.set_visible_child_name("sessions")
             if default_row is not None:
                 self.listbox.select_row(default_row)
 
@@ -149,6 +179,7 @@ class PickerApp(Adw.Application):
         self.window = None
 
     def do_activate(self):
+        _install_gradient_css()
         data = config.load()
         if self.window is None:
             self.window = PickerWindow(self, data)

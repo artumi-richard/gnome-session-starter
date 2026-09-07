@@ -3,17 +3,19 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gtk, GObject
+from gi.repository import Adw, Gdk, Gtk
 
 from . import autostart, config
+from .widgets import color_swatch
 
 
 class PreferencesWindow(Adw.Window):
     def __init__(self, app, data):
         super().__init__(application=app, title="Session Manager Preferences")
-        self.set_default_size(720, 480)
+        self.set_default_size(1080, 720)
         self.data = data
         self.current_session = None
+        self._updating_color_button = False
 
         toolbar_view = Adw.ToolbarView()
         header = Adw.HeaderBar()
@@ -42,10 +44,16 @@ class PreferencesWindow(Adw.Window):
         session_toolbar.set_margin_start(6)
         session_toolbar.set_margin_end(6)
         add_session_btn = Gtk.Button(icon_name="list-add-symbolic")
+        add_session_btn.set_tooltip_text("Add session")
         add_session_btn.connect("clicked", self.on_add_session)
+        copy_session_btn = Gtk.Button(icon_name="edit-copy-symbolic")
+        copy_session_btn.set_tooltip_text("Duplicate session")
+        copy_session_btn.connect("clicked", self.on_copy_session)
         remove_session_btn = Gtk.Button(icon_name="list-remove-symbolic")
+        remove_session_btn.set_tooltip_text("Delete session")
         remove_session_btn.connect("clicked", self.on_remove_session)
         session_toolbar.append(add_session_btn)
+        session_toolbar.append(copy_session_btn)
         session_toolbar.append(remove_session_btn)
         left_box.append(session_toolbar)
 
@@ -68,6 +76,13 @@ class PreferencesWindow(Adw.Window):
         self.default_check = Gtk.CheckButton(label="Use as default session (launch on Enter)")
         self.default_check.connect("toggled", self.on_default_toggled)
         right_box.append(self.default_check)
+
+        color_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        color_box.append(Gtk.Label(label="Color"))
+        self.color_button = Gtk.ColorDialogButton(dialog=Gtk.ColorDialog())
+        self.color_button.connect("notify::rgba", self.on_color_changed)
+        color_box.append(self.color_button)
+        right_box.append(color_box)
 
         apps_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         apps_label = Gtk.Label(label="Applications to launch", halign=Gtk.Align.START, hexpand=True)
@@ -111,6 +126,7 @@ class PreferencesWindow(Adw.Window):
             row = Adw.ActionRow(title=s["name"])
             if s["name"] == default_name:
                 row.set_subtitle("Default")
+            row.add_prefix(color_swatch(s.get("color")))
             row.session = s
             self.session_listbox.append(row)
             if s["name"] == select_name:
@@ -125,10 +141,24 @@ class PreferencesWindow(Adw.Window):
 
     def on_add_session(self, _button):
         name = self._unique_name("New Session")
-        session = {"name": name, "apps": []}
+        color = config.color_for_index(len(self.data["sessions"]))
+        session = {"name": name, "apps": [], "color": color}
         self.data["sessions"].append(session)
         if self.data.get("default_session") is None:
             self.data["default_session"] = name
+        config.save(self.data)
+        self.refresh_session_list(select_name=name)
+
+    def on_copy_session(self, _button):
+        if self.current_session is None:
+            return
+        name = self._unique_name(f"{self.current_session['name']} copy")
+        copy = {
+            "name": name,
+            "apps": list(self.current_session.get("apps", [])),
+            "color": self.current_session.get("color", config.color_for_index(len(self.data["sessions"]))),
+        }
+        self.data["sessions"].append(copy)
         config.save(self.data)
         self.refresh_session_list(select_name=name)
 
@@ -136,6 +166,22 @@ class PreferencesWindow(Adw.Window):
         if self.current_session is None:
             return
         name = self.current_session["name"]
+
+        dialog = Adw.AlertDialog(
+            heading="Delete session?",
+            body=f"“{name}” and its list of apps will be permanently deleted. This can't be undone.",
+        )
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("delete", "Delete")
+        dialog.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+        dialog.set_default_response("cancel")
+        dialog.set_close_response("cancel")
+        dialog.connect("response", self._on_remove_session_response, name)
+        dialog.present(self)
+
+    def _on_remove_session_response(self, _dialog, response, name):
+        if response != "delete":
+            return
         self.data["sessions"] = [s for s in self.data["sessions"] if s["name"] != name]
         if self.data.get("default_session") == name:
             self.data["default_session"] = (
@@ -164,6 +210,11 @@ class PreferencesWindow(Adw.Window):
         self.default_check.set_active(
             self.data.get("default_session") == self.current_session["name"]
         )
+        rgba = Gdk.RGBA()
+        rgba.parse(self.current_session.get("color", config.color_for_index(0)))
+        self._updating_color_button = True
+        self.color_button.set_rgba(rgba)
+        self._updating_color_button = False
         self.refresh_app_list()
 
     # --- session detail: name / default ---
@@ -195,6 +246,17 @@ class PreferencesWindow(Adw.Window):
             self.data["default_session"] = self.current_session["name"]
         elif self.data.get("default_session") == self.current_session["name"]:
             self.data["default_session"] = None
+        config.save(self.data)
+        self.refresh_session_list(select_name=self.current_session["name"])
+
+    def on_color_changed(self, button, _pspec):
+        if self.current_session is None or self._updating_color_button:
+            return
+        rgba = button.get_rgba()
+        hex_color = "#{:02x}{:02x}{:02x}".format(
+            round(rgba.red * 255), round(rgba.green * 255), round(rgba.blue * 255)
+        )
+        self.current_session["color"] = hex_color
         config.save(self.data)
         self.refresh_session_list(select_name=self.current_session["name"])
 

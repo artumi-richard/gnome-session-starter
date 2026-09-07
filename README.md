@@ -8,8 +8,11 @@ want, then launches the apps configured for that session and exits.
 - `Enter` — launch the selected session (the default session is pre-selected,
   so `Enter` alone launches it)
 - `Escape` — quit without launching anything
-- Preferences icon in the header bar — add/remove sessions and edit each
-  session's list of commands, and pick which one is the default
+- Preferences icon in the header bar — add, duplicate, or delete sessions
+  (deleting asks for confirmation first), edit each session's list of
+  commands, pick which one is the default, and set a color for it
+- Each session gets a color swatch, shown next to it in both the picker and
+  Preferences, so you can tell sessions apart at a glance
 - "Import from Startup Applications…" in the session editor — pulls entries
   from `~/.config/autostart/*.desktop` (the same list GNOME's own Startup
   Applications tool manages) so you don't have to retype commands for apps

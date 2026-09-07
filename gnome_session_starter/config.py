@@ -6,6 +6,23 @@ from pathlib import Path
 CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "gnome-session-starter"
 CONFIG_FILE = CONFIG_DIR / "sessions.json"
 
+# Colors assigned to new sessions, cycling in order; also used to backfill a
+# color for sessions saved before color-coding existed.
+DEFAULT_PALETTE = [
+    "#3584e4",  # blue
+    "#2ec27e",  # green
+    "#f6d32d",  # yellow
+    "#ff7800",  # orange
+    "#e01b24",  # red
+    "#9141ac",  # purple
+    "#e66100",  # dark orange
+    "#0e7d87",  # teal
+]
+
+
+def color_for_index(index):
+    return DEFAULT_PALETTE[index % len(DEFAULT_PALETTE)]
+
 
 def default_config():
     return {"default_session": None, "sessions": []}
@@ -18,6 +35,9 @@ def load():
         data = json.load(f)
     data.setdefault("default_session", None)
     data.setdefault("sessions", [])
+    for i, s in enumerate(data["sessions"]):
+        s.setdefault("apps", [])
+        s.setdefault("color", color_for_index(i))
     return data
 
 
