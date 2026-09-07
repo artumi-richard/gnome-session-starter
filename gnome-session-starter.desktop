@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=Session Launcher
+Name=Session Starter
 Comment=Pick a set of applications to launch for this login
-Exec=/home/richard/dev/gnome/session-manager/session-manager
+Exec=/home/richard/dev/gnome/gnome-session-starter/gnome-session-starter
 Icon=preferences-system-symbolic
 Terminal=false
 Categories=System;

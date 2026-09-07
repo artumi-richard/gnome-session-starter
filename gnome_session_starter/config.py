@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 
-CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "session-manager"
+CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "gnome-session-starter"
 CONFIG_FILE = CONFIG_DIR / "sessions.json"
 
 

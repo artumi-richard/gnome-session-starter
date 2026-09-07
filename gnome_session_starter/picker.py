@@ -145,7 +145,7 @@ class PickerWindow(Adw.ApplicationWindow):
 
 class PickerApp(Adw.Application):
     def __init__(self):
-        super().__init__(application_id="io.github.rfletcher.SessionLauncher")
+        super().__init__(application_id="io.github.artumi_richard.GnomeSessionStarter")
         self.window = None
 
     def do_activate(self):

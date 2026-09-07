@@ -12,7 +12,7 @@ from . import config
 def run_prefs():
     from .prefs import PreferencesWindow
 
-    app = Adw.Application(application_id="io.github.rfletcher.SessionLauncher.Preferences")
+    app = Adw.Application(application_id="io.github.artumi_richard.GnomeSessionStarter.Preferences")
 
     def on_activate(a):
         data = config.load()

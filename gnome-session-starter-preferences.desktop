@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Session Starter Preferences
+Comment=Configure sessions for Session Starter
+Exec=/home/richard/dev/gnome/gnome-session-starter/gnome-session-starter --prefs
+Icon=preferences-system-symbolic
+Terminal=false
+Categories=System;Settings;
