@@ -10,9 +10,14 @@ want, then launches the apps configured for that session and exits.
 - `Escape` — quit without launching anything
 - Preferences icon in the header bar — add, duplicate, or delete sessions
   (deleting asks for confirmation first), edit each session's list of
-  commands, pick which one is the default, and set a color for it
+  apps, pick which one is the default, and set a color for it
 - Each session gets a color swatch, shown next to it in both the picker and
   Preferences, so you can tell sessions apart at a glance
+- Each app in a session has a name, a description, and a command, plus a
+  switch to mark it inactive — an inactive app stays in the list (so you
+  don't lose the command) but is skipped when the session launches. Every
+  app row has edit (rename/change command/description), reorder, and
+  remove buttons.
 - "Import from Startup Applications…" in the session editor — pulls entries
   from `~/.config/autostart/*.desktop` (the same list GNOME's own Startup
   Applications tool manages) so you don't have to retype commands for apps
@@ -28,6 +33,8 @@ want, then launches the apps configured for that session and exits.
   binary on `$PATH` — its real launch command turns out to be something
   like `steam steam://rungameid/975370`, which this list surfaces for you
   instead of you having to go hunting for it.
+- Both importers carry across each app's description too (the `Comment=`
+  field from its `.desktop` entry), so you don't have to write your own.
 
 ## Requirements
 

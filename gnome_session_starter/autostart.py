@@ -9,7 +9,7 @@ AUTOSTART_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
 
 
 def list_entries():
-    """Return [{"name": ..., "command": ...}] for enabled user autostart entries."""
+    """Return [{"name", "command", "description"}] for enabled user autostart entries."""
     entries = []
     if not AUTOSTART_DIR.is_dir():
         return entries
@@ -34,6 +34,7 @@ def list_entries():
             continue
 
         name = section.get("Name", "").strip() or path.stem
-        entries.append({"name": name, "command": clean_exec(exec_value)})
+        description = section.get("Comment", "").strip()
+        entries.append({"name": name, "command": clean_exec(exec_value), "description": description})
 
     return entries

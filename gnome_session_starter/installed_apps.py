@@ -14,7 +14,7 @@ from .desktop_entries import clean_exec
 
 
 def list_installed_apps():
-    """Return [{"name", "command", "icon"}] for every app that should_show()."""
+    """Return [{"name", "command", "description", "icon"}] for every app that should_show()."""
     apps = []
     for info in Gio.AppInfo.get_all():
         if not info.should_show():
@@ -26,6 +26,7 @@ def list_installed_apps():
         apps.append({
             "name": name,
             "command": clean_exec(commandline),
+            "description": info.get_description() or "",
             "icon": info.get_icon(),
         })
     apps.sort(key=lambda a: a["name"].lower())

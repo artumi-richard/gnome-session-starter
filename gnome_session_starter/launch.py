@@ -5,7 +5,12 @@ import subprocess
 
 def launch_session(session):
     for app in session.get("apps", []):
-        cmd = app if isinstance(app, str) else app.get("command", "")
+        if isinstance(app, str):
+            cmd = app
+        else:
+            if not app.get("active", True):
+                continue
+            cmd = app.get("command", "")
         cmd = cmd.strip()
         if not cmd:
             continue

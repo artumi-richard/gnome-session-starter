@@ -28,6 +28,30 @@ def default_config():
     return {"default_session": None, "sessions": []}
 
 
+def normalize_app(app):
+    """Upgrade a session app entry to the {name, command, description, active} shape.
+
+    Older configs stored apps as plain command strings; keep loading those.
+    """
+    if isinstance(app, str):
+        return {"name": app, "command": app, "description": "", "active": True}
+    app = dict(app)
+    app.setdefault("command", "")
+    app.setdefault("name", app["command"])
+    app.setdefault("description", "")
+    app.setdefault("active", True)
+    return app
+
+
+def new_app(command, name=None, description=""):
+    return {
+        "name": name or command,
+        "command": command,
+        "description": description,
+        "active": True,
+    }
+
+
 def load():
     if not CONFIG_FILE.exists():
         return default_config()
@@ -37,6 +61,7 @@ def load():
     data.setdefault("sessions", [])
     for i, s in enumerate(data["sessions"]):
         s.setdefault("apps", [])
+        s["apps"] = [normalize_app(a) for a in s["apps"]]
         s.setdefault("color", color_for_index(i))
     return data
 

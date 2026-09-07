@@ -96,8 +96,12 @@ class PickerWindow(Adw.ApplicationWindow):
         default_name = config.default_session_name(self.data)
         default_row = None
         for s in self.sessions:
+            apps = s.get("apps", [])
+            active = sum(1 for a in apps if (isinstance(a, dict) and a.get("active", True)) or isinstance(a, str))
+            total = len(apps)
+            subtitle = f"{active} app(s)" if active == total else f"{active} of {total} app(s)"
             row = Adw.ActionRow(title=escape(s["name"]))
-            row.set_subtitle(f"{len(s.get('apps', []))} app(s)")
+            row.set_subtitle(subtitle)
             row.add_prefix(color_swatch(s.get("color")))
             if s["name"] == default_name:
                 row.add_suffix(Gtk.Image(icon_name="starred-symbolic"))

@@ -158,7 +158,7 @@ class PreferencesWindow(Adw.Window):
         name = self._unique_name(f"{self.current_session['name']} copy")
         copy = {
             "name": name,
-            "apps": list(self.current_session.get("apps", [])),
+            "apps": [dict(a) for a in self.current_session.get("apps", [])],
             "color": self.current_session.get("color", config.color_for_index(len(self.data["sessions"]))),
         }
         self.data["sessions"].append(copy)
@@ -270,7 +270,22 @@ class PreferencesWindow(Adw.Window):
         if self.current_session is None:
             return
         for i, app in enumerate(self.current_session.get("apps", [])):
-            row = Adw.ActionRow(title=escape(app))
+            row = Adw.ActionRow(title=escape(app["name"]))
+            row.set_subtitle(escape(app["description"] or app["command"]))
+            row.set_tooltip_text(app["command"])
+            if not app["active"]:
+                row.add_css_class("dim-label")
+
+            active_switch = Gtk.Switch(valign=Gtk.Align.CENTER)
+            active_switch.set_tooltip_text("Launch this app with the session")
+            active_switch.set_active(app["active"])
+            active_switch.connect("state-set", self.on_app_active_toggled, i)
+            row.add_prefix(active_switch)
+
+            edit_btn = Gtk.Button(icon_name="document-edit-symbolic", valign=Gtk.Align.CENTER)
+            edit_btn.add_css_class("flat")
+            edit_btn.set_tooltip_text("Edit")
+            edit_btn.connect("clicked", self.on_edit_app, i)
             up_btn = Gtk.Button(icon_name="go-up-symbolic", valign=Gtk.Align.CENTER)
             up_btn.add_css_class("flat")
             up_btn.connect("clicked", self.on_move_app, i, -1)
@@ -279,7 +294,9 @@ class PreferencesWindow(Adw.Window):
             down_btn.connect("clicked", self.on_move_app, i, 1)
             remove_btn = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER)
             remove_btn.add_css_class("flat")
+            remove_btn.set_tooltip_text("Remove")
             remove_btn.connect("clicked", self.on_remove_app, i)
+            row.add_suffix(edit_btn)
             row.add_suffix(up_btn)
             row.add_suffix(down_btn)
             row.add_suffix(remove_btn)
@@ -291,7 +308,7 @@ class PreferencesWindow(Adw.Window):
         cmd = self.app_entry.get_text().strip()
         if not cmd:
             return
-        self.current_session.setdefault("apps", []).append(cmd)
+        self.current_session.setdefault("apps", []).append(config.new_app(cmd))
         self.app_entry.set_text("")
         config.save(self.data)
         self.refresh_app_list()
@@ -311,11 +328,73 @@ class PreferencesWindow(Adw.Window):
             config.save(self.data)
             self.refresh_app_list()
 
+    def on_app_active_toggled(self, _switch, state, index):
+        apps = self.current_session.get("apps", [])
+        if 0 <= index < len(apps):
+            apps[index]["active"] = state
+            config.save(self.data)
+            row = self.app_listbox.get_row_at_index(index)
+            if row is not None:
+                if state:
+                    row.remove_css_class("dim-label")
+                else:
+                    row.add_css_class("dim-label")
+        return False
+
+    def on_edit_app(self, _button, index):
+        apps = self.current_session.get("apps", [])
+        if not (0 <= index < len(apps)):
+            return
+        app = apps[index]
+
+        dialog = Adw.AlertDialog(heading="Edit Application")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+
+        name_row = Adw.EntryRow(title="Name")
+        name_row.set_text(app["name"])
+        command_row = Adw.EntryRow(title="Command")
+        command_row.set_text(app["command"])
+        description_row = Adw.EntryRow(title="Description")
+        description_row.set_text(app["description"])
+
+        group = Adw.PreferencesGroup()
+        group.add(name_row)
+        group.add(command_row)
+        group.add(description_row)
+        box.append(group)
+        dialog.set_extra_child(box)
+
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("save", "Save")
+        dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
+        dialog.set_default_response("save")
+        dialog.set_close_response("cancel")
+        dialog.connect(
+            "response", self._on_edit_app_response, index, name_row, command_row, description_row
+        )
+        dialog.present(self)
+
+    def _on_edit_app_response(self, _dialog, response, index, name_row, command_row, description_row):
+        if response != "save":
+            return
+        apps = self.current_session.get("apps", [])
+        if not (0 <= index < len(apps)):
+            return
+        command = command_row.get_text().strip()
+        if not command:
+            return
+        name = name_row.get_text().strip() or command
+        apps[index]["name"] = name
+        apps[index]["command"] = command
+        apps[index]["description"] = description_row.get_text().strip()
+        config.save(self.data)
+        self.refresh_app_list()
+
     def on_import_clicked(self, _button):
         if self.current_session is None:
             return
         entries = autostart.list_entries()
-        existing = set(self.current_session.get("apps", []))
+        existing = {a["command"] for a in self.current_session.get("apps", [])}
 
         dialog = Adw.Window(
             application=self.get_application(),
@@ -346,12 +425,13 @@ class PreferencesWindow(Adw.Window):
             listbox.add_css_class("boxed-list")
             checks = []
             for e in entries:
-                row = Adw.ActionRow(title=escape(e["name"]), subtitle=escape(e["command"]))
+                subtitle = e.get("description") or e["command"]
+                row = Adw.ActionRow(title=escape(e["name"]), subtitle=escape(subtitle))
                 check = Gtk.CheckButton(valign=Gtk.Align.CENTER)
                 if e["command"] in existing:
                     check.set_active(True)
                     check.set_sensitive(False)
-                    row.set_subtitle(escape(f"{e['command']} (already added)"))
+                    row.set_subtitle(escape(f"{subtitle} (already added)"))
                 row.add_prefix(check)
                 row.set_activatable_widget(check)
                 listbox.append(row)
@@ -380,9 +460,13 @@ class PreferencesWindow(Adw.Window):
 
     def _add_checked_commands(self, checks):
         apps = self.current_session.setdefault("apps", [])
+        existing = {a["command"] for a in apps}
         for check, entry in checks:
-            if check.get_active() and check.get_sensitive() and entry["command"] not in apps:
-                apps.append(entry["command"])
+            if check.get_active() and check.get_sensitive() and entry["command"] not in existing:
+                apps.append(config.new_app(
+                    entry["command"], name=entry.get("name"), description=entry.get("description", "")
+                ))
+                existing.add(entry["command"])
         config.save(self.data)
         self.refresh_app_list()
 
@@ -390,7 +474,7 @@ class PreferencesWindow(Adw.Window):
         if self.current_session is None:
             return
         entries = installed_apps.list_installed_apps()
-        existing = set(self.current_session.get("apps", []))
+        existing = {a["command"] for a in self.current_session.get("apps", [])}
 
         dialog = Adw.Window(
             application=self.get_application(),
@@ -419,14 +503,15 @@ class PreferencesWindow(Adw.Window):
         listbox.add_css_class("boxed-list")
         checks = []
         for e in entries:
-            row = Adw.ActionRow(title=escape(e["name"]), subtitle=escape(e["command"]))
+            subtitle = e.get("description") or e["command"]
+            row = Adw.ActionRow(title=escape(e["name"]), subtitle=escape(subtitle))
             if e["icon"] is not None:
                 row.add_prefix(Gtk.Image.new_from_gicon(e["icon"]))
             check = Gtk.CheckButton(valign=Gtk.Align.CENTER)
             if e["command"] in existing:
                 check.set_active(True)
                 check.set_sensitive(False)
-                row.set_subtitle(escape(f"{e['command']} (already added)"))
+                row.set_subtitle(escape(f"{subtitle} (already added)"))
             row.add_prefix(check)
             row.set_activatable_widget(check)
             listbox.append(row)
