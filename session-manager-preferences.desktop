@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Session Launcher Preferences
+Comment=Configure sessions for the Session Launcher
+Exec=/home/richard/dev/gnome/session-manager/session-manager --prefs
+Icon=preferences-system-symbolic
+Terminal=false
+Categories=System;Settings;

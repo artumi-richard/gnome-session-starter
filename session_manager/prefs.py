@@ -1,0 +1,237 @@
+"""Preferences window: configure sessions and the apps each one launches."""
+import gi
+
+gi.require_version("Gtk", "4.0")
+gi.require_version("Adw", "1")
+from gi.repository import Adw, Gtk, GObject
+
+from . import config
+
+
+class PreferencesWindow(Adw.Window):
+    def __init__(self, app, data):
+        super().__init__(application=app, title="Session Manager Preferences")
+        self.set_default_size(720, 480)
+        self.data = data
+        self.current_session = None
+
+        toolbar_view = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        toolbar_view.add_top_bar(header)
+
+        split = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        split.set_position(220)
+        toolbar_view.set_content(split)
+        self.set_content(toolbar_view)
+
+        # --- Left: list of sessions ---
+        left_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.session_listbox = Gtk.ListBox()
+        self.session_listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.session_listbox.add_css_class("navigation-sidebar")
+        self.session_listbox.connect("row-selected", self.on_session_selected)
+
+        left_scroller = Gtk.ScrolledWindow()
+        left_scroller.set_child(self.session_listbox)
+        left_scroller.set_vexpand(True)
+        left_box.append(left_scroller)
+
+        session_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        session_toolbar.set_margin_top(6)
+        session_toolbar.set_margin_bottom(6)
+        session_toolbar.set_margin_start(6)
+        session_toolbar.set_margin_end(6)
+        add_session_btn = Gtk.Button(icon_name="list-add-symbolic")
+        add_session_btn.connect("clicked", self.on_add_session)
+        remove_session_btn = Gtk.Button(icon_name="list-remove-symbolic")
+        remove_session_btn.connect("clicked", self.on_remove_session)
+        session_toolbar.append(add_session_btn)
+        session_toolbar.append(remove_session_btn)
+        left_box.append(session_toolbar)
+
+        split.set_start_child(left_box)
+
+        # --- Right: session detail ---
+        right_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        right_box.set_margin_top(12)
+        right_box.set_margin_bottom(12)
+        right_box.set_margin_start(12)
+        right_box.set_margin_end(12)
+
+        name_row = Adw.EntryRow(title="Session name")
+        name_row.connect("changed", self.on_name_changed)
+        self.name_row = name_row
+        name_group = Adw.PreferencesGroup()
+        name_group.add(name_row)
+        right_box.append(name_group)
+
+        self.default_check = Gtk.CheckButton(label="Use as default session (launch on Enter)")
+        self.default_check.connect("toggled", self.on_default_toggled)
+        right_box.append(self.default_check)
+
+        apps_label = Gtk.Label(label="Applications to launch", halign=Gtk.Align.START)
+        apps_label.add_css_class("heading")
+        right_box.append(apps_label)
+
+        self.app_listbox = Gtk.ListBox()
+        self.app_listbox.add_css_class("boxed-list")
+        app_scroller = Gtk.ScrolledWindow()
+        app_scroller.set_child(self.app_listbox)
+        app_scroller.set_vexpand(True)
+        right_box.append(app_scroller)
+
+        app_entry_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        self.app_entry = Gtk.Entry(hexpand=True)
+        self.app_entry.set_placeholder_text("Command to launch, e.g. firefox or steam")
+        self.app_entry.connect("activate", self.on_add_app)
+        add_app_btn = Gtk.Button(label="Add")
+        add_app_btn.connect("clicked", self.on_add_app)
+        app_entry_box.append(self.app_entry)
+        app_entry_box.append(add_app_btn)
+        right_box.append(app_entry_box)
+
+        self.right_box = right_box
+        right_box.set_sensitive(False)
+        split.set_end_child(right_box)
+
+        self.refresh_session_list()
+
+    # --- session list management ---
+
+    def refresh_session_list(self, select_name=None):
+        self.session_listbox.remove_all()
+        default_name = self.data.get("default_session")
+        row_to_select = None
+        for s in self.data["sessions"]:
+            row = Adw.ActionRow(title=s["name"])
+            if s["name"] == default_name:
+                row.set_subtitle("Default")
+            row.session = s
+            self.session_listbox.append(row)
+            if s["name"] == select_name:
+                row_to_select = row
+        if row_to_select is None and self.data["sessions"]:
+            row_to_select = self.session_listbox.get_row_at_index(0)
+        if row_to_select is not None:
+            self.session_listbox.select_row(row_to_select)
+        else:
+            self.current_session = None
+            self.right_box.set_sensitive(False)
+
+    def on_add_session(self, _button):
+        name = self._unique_name("New Session")
+        session = {"name": name, "apps": []}
+        self.data["sessions"].append(session)
+        if self.data.get("default_session") is None:
+            self.data["default_session"] = name
+        config.save(self.data)
+        self.refresh_session_list(select_name=name)
+
+    def on_remove_session(self, _button):
+        if self.current_session is None:
+            return
+        name = self.current_session["name"]
+        self.data["sessions"] = [s for s in self.data["sessions"] if s["name"] != name]
+        if self.data.get("default_session") == name:
+            self.data["default_session"] = (
+                self.data["sessions"][0]["name"] if self.data["sessions"] else None
+            )
+        config.save(self.data)
+        self.refresh_session_list()
+
+    def _unique_name(self, base):
+        existing = {s["name"] for s in self.data["sessions"]}
+        if base not in existing:
+            return base
+        i = 2
+        while f"{base} {i}" in existing:
+            i += 1
+        return f"{base} {i}"
+
+    def on_session_selected(self, _listbox, row):
+        if row is None:
+            self.current_session = None
+            self.right_box.set_sensitive(False)
+            return
+        self.current_session = row.session
+        self.right_box.set_sensitive(True)
+        self.name_row.set_text(self.current_session["name"])
+        self.default_check.set_active(
+            self.data.get("default_session") == self.current_session["name"]
+        )
+        self.refresh_app_list()
+
+    # --- session detail: name / default ---
+
+    def on_name_changed(self, entry):
+        if self.current_session is None:
+            return
+        new_name = entry.get_text().strip()
+        if not new_name or new_name == self.current_session["name"]:
+            return
+        old_name = self.current_session["name"]
+        if any(s["name"] == new_name for s in self.data["sessions"] if s is not self.current_session):
+            return  # avoid duplicate names while user is still typing
+        self.current_session["name"] = new_name
+        if self.data.get("default_session") == old_name:
+            self.data["default_session"] = new_name
+        config.save(self.data)
+        self.refresh_session_list(select_name=new_name)
+
+    def on_default_toggled(self, check):
+        if self.current_session is None:
+            return
+        if check.get_active():
+            self.data["default_session"] = self.current_session["name"]
+        elif self.data.get("default_session") == self.current_session["name"]:
+            self.data["default_session"] = None
+        config.save(self.data)
+        self.refresh_session_list(select_name=self.current_session["name"])
+
+    # --- session detail: apps ---
+
+    def refresh_app_list(self):
+        self.app_listbox.remove_all()
+        if self.current_session is None:
+            return
+        for i, app in enumerate(self.current_session.get("apps", [])):
+            row = Adw.ActionRow(title=app)
+            up_btn = Gtk.Button(icon_name="go-up-symbolic", valign=Gtk.Align.CENTER)
+            up_btn.add_css_class("flat")
+            up_btn.connect("clicked", self.on_move_app, i, -1)
+            down_btn = Gtk.Button(icon_name="go-down-symbolic", valign=Gtk.Align.CENTER)
+            down_btn.add_css_class("flat")
+            down_btn.connect("clicked", self.on_move_app, i, 1)
+            remove_btn = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER)
+            remove_btn.add_css_class("flat")
+            remove_btn.connect("clicked", self.on_remove_app, i)
+            row.add_suffix(up_btn)
+            row.add_suffix(down_btn)
+            row.add_suffix(remove_btn)
+            self.app_listbox.append(row)
+
+    def on_add_app(self, _widget):
+        if self.current_session is None:
+            return
+        cmd = self.app_entry.get_text().strip()
+        if not cmd:
+            return
+        self.current_session.setdefault("apps", []).append(cmd)
+        self.app_entry.set_text("")
+        config.save(self.data)
+        self.refresh_app_list()
+
+    def on_remove_app(self, _button, index):
+        apps = self.current_session.get("apps", [])
+        if 0 <= index < len(apps):
+            del apps[index]
+            config.save(self.data)
+            self.refresh_app_list()
+
+    def on_move_app(self, _button, index, delta):
+        apps = self.current_session.get("apps", [])
+        new_index = index + delta
+        if 0 <= new_index < len(apps):
+            apps[index], apps[new_index] = apps[new_index], apps[index]
+            config.save(self.data)
+            self.refresh_app_list()

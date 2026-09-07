@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Session Launcher
+Comment=Pick a set of applications to launch for this login
+Exec=/home/richard/dev/gnome/session-manager/session-manager
+Icon=preferences-system-symbolic
+Terminal=false
+Categories=System;
+X-GNOME-Autostart-enabled=true
