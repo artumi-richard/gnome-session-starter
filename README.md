@@ -68,6 +68,26 @@ Each session app is launched independently (not through a shell), so
 pipes/`&&`/env vars written directly in the field won't work — but a
 single command with arguments like the above does.
 
+## Installing (application list + icon)
+
+```
+./install.sh
+```
+
+Symlinks `io.github.artumi_richard.GnomeSessionStarter.desktop` and
+`io.github.artumi_richard.GnomeSessionStarter.Preferences.desktop` into
+`~/.local/share/applications/`, and the app's icon into
+`~/.local/share/icons/hicolor/scalable/apps/`, so **Session Starter** and
+**Session Starter Preferences** show up in GNOME's application list with a
+proper icon. Since they're symlinks, editing/moving files in this checkout
+takes effect without reinstalling (moving the checkout itself needs a
+re-run, since the `Exec=` paths in the `.desktop` files are absolute).
+
+The `.desktop` file basenames intentionally match the app's own
+`Gio.Application` id (`io.github.artumi_richard.GnomeSessionStarter[.Preferences]`)
+— that's what lets GNOME Shell associate the running window with the right
+icon in Alt-Tab, the dash, etc., instead of falling back to a generic one.
+
 ## Install as a Startup Application
 
 This app is meant to *replace* Startup Applications for everything that's
@@ -76,10 +96,11 @@ itself, alongside anything you genuinely want running on every login
 regardless of session (a background daemon like Atuin, say). So the setup
 is:
 
-1. Add **Session Starter** itself as an entry in GNOME's Startup
-   Applications tool (search "Startup Applications" in Activities, or run
-   `gnome-session-properties`), pointing at this checkout's
-   `gnome-session-starter` script.
+1. Run `./install.sh` (above) so it's a recognized application, then add
+   **Session Starter** as an entry in GNOME's Startup Applications tool
+   (search "Startup Applications" in Activities, or run
+   `gnome-session-properties`) — Add → it'll now show up by name instead of
+   needing to browse to the script.
 2. Leave any always-needed apps (Atuin, etc.) as their own separate entries
    there too.
 3. Move everything else — the apps that differ per session — out of Startup
@@ -87,23 +108,6 @@ is:
    Applications…" in the session editor to pull them across without
    retyping commands).
 
-You can add the entry through the Startup Applications GUI directly (Add →
-browse to `gnome-session-starter.desktop`), or install the `.desktop` file
-for it to pick up:
-
-```
-mkdir -p ~/.config/autostart
-cp gnome-session-starter.desktop ~/.config/autostart/
-```
-
-To also get it in your applications menu (for launching it manually, or
-opening Preferences), copy both `.desktop` files into
-`~/.local/share/applications/`:
-
-```
-cp gnome-session-starter.desktop gnome-session-starter-preferences.desktop ~/.local/share/applications/
-```
-
-Note the `.desktop` files point at this checkout's path
-(`/home/richard/dev/gnome/gnome-session-starter/gnome-session-starter`) — if
-you move the checkout, update `Exec=` in both files to match.
+If you'd rather not run `install.sh`, you can add the entry manually by
+browsing to `io.github.artumi_richard.GnomeSessionStarter.desktop` in this
+checkout, or by copying it into `~/.config/autostart/` yourself.
