@@ -176,7 +176,12 @@ class PreferencesWindow(Adw.Window):
         if self.data.get("default_session") == old_name:
             self.data["default_session"] = new_name
         config.save(self.data)
-        self.refresh_session_list(select_name=new_name)
+        # Update the sidebar row in place instead of rebuilding the list, so we
+        # don't reselect it and re-set the entry's text (which would reset the
+        # cursor and steal focus on every keystroke).
+        row = self.session_listbox.get_selected_row()
+        if row is not None:
+            row.set_title(new_name)
 
     def on_default_toggled(self, check):
         if self.current_session is None:

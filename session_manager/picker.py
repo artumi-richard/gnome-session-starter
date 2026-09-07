@@ -27,6 +27,11 @@ class PickerWindow(Adw.ApplicationWindow):
         prefs_button.connect("clicked", self.on_prefs_clicked)
         header.pack_end(prefs_button)
 
+        close_button = Gtk.Button(icon_name="window-close-symbolic")
+        close_button.set_tooltip_text("Close")
+        close_button.connect("clicked", lambda _b: self.get_application().quit())
+        header.pack_end(close_button)
+
         self.listbox = Gtk.ListBox()
         self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.listbox.add_css_class("boxed-list")
