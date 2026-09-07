@@ -1,17 +1,40 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#3584e4"/>
-      <stop offset="0.55" stop-color="#1a5fb4"/>
-      <stop offset="1" stop-color="#0b3a80"/>
+    <linearGradient id="green" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#57e389"/>
+      <stop offset="1" stop-color="#2ec27e"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffa348"/>
+      <stop offset="1" stop-color="#e66100"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#62a0ea"/>
+      <stop offset="1" stop-color="#1c71d8"/>
     </linearGradient>
   </defs>
-  <rect x="4" y="4" width="120" height="120" rx="26" fill="url(#bg)"/>
-  <g fill="#ffffff">
-    <circle cx="40" cy="40" r="10"/>
-    <circle cx="88" cy="40" r="10" opacity="0.55"/>
-    <circle cx="40" cy="88" r="10" opacity="0.55"/>
-    <circle cx="88" cy="88" r="10" opacity="0.55"/>
+
+  <!-- back card: green -->
+  <g transform="rotate(-16 64 66)">
+    <rect x="27" y="35" width="64" height="50" rx="9" fill="#0b3a80" opacity="0.16"/>
+    <rect x="26" y="34" width="64" height="50" rx="9" fill="url(#green)"/>
+    <rect x="26" y="34" width="64" height="13" rx="9" fill="#000000" opacity="0.12"/>
   </g>
-  <path d="M53 46 L53 82 L83 64 Z" fill="#ffffff"/>
+
+  <!-- back card: orange -->
+  <g transform="rotate(15 64 66)">
+    <rect x="39" y="35" width="64" height="50" rx="9" fill="#0b3a80" opacity="0.16"/>
+    <rect x="38" y="34" width="64" height="50" rx="9" fill="url(#orange)"/>
+    <rect x="38" y="34" width="64" height="13" rx="9" fill="#000000" opacity="0.12"/>
+  </g>
+
+  <!-- front card: blue, with play glyph -->
+  <g transform="rotate(-2 64 66)">
+    <rect x="33" y="39.5" width="64" height="50" rx="9" fill="#0b3a80" opacity="0.22"/>
+    <rect x="32" y="38" width="64" height="50" rx="9" fill="url(#blue)"/>
+    <rect x="32" y="38" width="64" height="13" rx="9" fill="#ffffff" opacity="0.18"/>
+    <circle cx="40.5" cy="44.5" r="2.4" fill="#ffffff" opacity="0.85"/>
+    <circle cx="48" cy="44.5" r="2.4" fill="#ffffff" opacity="0.55"/>
+    <path d="M56 60 L56 78 L74 69 Z" fill="#ffffff"/>
+  </g>
 </svg>
