@@ -22,15 +22,17 @@ class PickerWindow(Adw.ApplicationWindow):
         header.set_show_start_title_buttons(False)
         self.toolbar_view.add_top_bar(header)
 
-        prefs_button = Gtk.Button(icon_name="preferences-system-symbolic")
-        prefs_button.set_tooltip_text("Preferences")
-        prefs_button.connect("clicked", self.on_prefs_clicked)
-        header.pack_end(prefs_button)
-
+        # pack_end() inserts each new widget before the previous ones, so pack
+        # the close button first to put it outermost (to the right of prefs).
         close_button = Gtk.Button(icon_name="window-close-symbolic")
         close_button.set_tooltip_text("Close")
         close_button.connect("clicked", lambda _b: self.get_application().quit())
         header.pack_end(close_button)
+
+        prefs_button = Gtk.Button(icon_name="preferences-system-symbolic")
+        prefs_button.set_tooltip_text("Preferences")
+        prefs_button.connect("clicked", self.on_prefs_clicked)
+        header.pack_end(prefs_button)
 
         self.listbox = Gtk.ListBox()
         self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)

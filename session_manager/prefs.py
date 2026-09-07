@@ -5,7 +5,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk, GObject
 
-from . import config
+from . import autostart, config
 
 
 class PreferencesWindow(Adw.Window):
@@ -69,9 +69,14 @@ class PreferencesWindow(Adw.Window):
         self.default_check.connect("toggled", self.on_default_toggled)
         right_box.append(self.default_check)
 
-        apps_label = Gtk.Label(label="Applications to launch", halign=Gtk.Align.START)
+        apps_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        apps_label = Gtk.Label(label="Applications to launch", halign=Gtk.Align.START, hexpand=True)
         apps_label.add_css_class("heading")
-        right_box.append(apps_label)
+        apps_header.append(apps_label)
+        import_btn = Gtk.Button(label="Import from Startup Applications…")
+        import_btn.connect("clicked", self.on_import_clicked)
+        apps_header.append(import_btn)
+        right_box.append(apps_header)
 
         self.app_listbox = Gtk.ListBox()
         self.app_listbox.add_css_class("boxed-list")
@@ -240,3 +245,75 @@ class PreferencesWindow(Adw.Window):
             apps[index], apps[new_index] = apps[new_index], apps[index]
             config.save(self.data)
             self.refresh_app_list()
+
+    def on_import_clicked(self, _button):
+        if self.current_session is None:
+            return
+        entries = autostart.list_entries()
+        existing = set(self.current_session.get("apps", []))
+
+        dialog = Adw.Window(
+            application=self.get_application(),
+            transient_for=self,
+            modal=True,
+            title="Import from Startup Applications",
+        )
+        dialog.set_default_size(420, 400)
+
+        toolbar_view = Adw.ToolbarView()
+        header = Adw.HeaderBar()
+        toolbar_view.add_top_bar(header)
+        dialog.set_content(toolbar_view)
+
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_top(12)
+        content.set_margin_bottom(12)
+        content.set_margin_start(12)
+        content.set_margin_end(12)
+
+        if not entries:
+            content.append(Adw.StatusPage(
+                title="Nothing to import",
+                description="No enabled entries found in Startup Applications.",
+            ))
+        else:
+            listbox = Gtk.ListBox()
+            listbox.add_css_class("boxed-list")
+            checks = []
+            for e in entries:
+                row = Adw.ActionRow(title=e["name"], subtitle=e["command"])
+                check = Gtk.CheckButton(valign=Gtk.Align.CENTER)
+                if e["command"] in existing:
+                    check.set_active(True)
+                    check.set_sensitive(False)
+                    row.set_subtitle(f"{e['command']} (already added)")
+                row.add_prefix(check)
+                row.set_activatable_widget(check)
+                listbox.append(row)
+                checks.append((check, e))
+            scroller = Gtk.ScrolledWindow()
+            scroller.set_child(listbox)
+            scroller.set_vexpand(True)
+            content.append(scroller)
+
+            button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6, halign=Gtk.Align.END)
+            cancel_btn = Gtk.Button(label="Cancel")
+            cancel_btn.connect("clicked", lambda _b: dialog.close())
+            add_btn = Gtk.Button(label="Add Selected")
+            add_btn.add_css_class("suggested-action")
+            add_btn.connect("clicked", lambda _b: self.on_import_confirmed(dialog, checks))
+            button_box.append(cancel_btn)
+            button_box.append(add_btn)
+            content.append(button_box)
+
+        toolbar_view.set_content(content)
+        dialog.present()
+
+    def on_import_confirmed(self, dialog, checks):
+        apps = self.current_session.setdefault("apps", [])
+        for check, entry in checks:
+            if check.get_active() and check.get_sensitive() and entry["command"] not in apps:
+                apps.append(entry["command"])
+        config.save(self.data)
+        self.refresh_app_list()
+        dialog.close()
