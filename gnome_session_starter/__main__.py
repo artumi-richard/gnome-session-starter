@@ -30,7 +30,16 @@ def run_picker():
     return main()
 
 
+def run_fetch_potd():
+    from . import potd
+
+    potd.fetch_and_store()
+    return 0
+
+
 def main():
+    if "--fetch-potd" in sys.argv[1:]:
+        return run_fetch_potd()
     if "--prefs" in sys.argv[1:] or "--preferences" in sys.argv[1:]:
         return run_prefs()
     return run_picker()

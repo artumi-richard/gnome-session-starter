@@ -5,7 +5,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gtk, GLib
 
-from . import config
+from . import config, potd
 from .launch import launch_session
 from .widgets import color_swatch, escape
 
@@ -13,7 +13,16 @@ _GRADIENT_CSS = b"""
 window.session-starter {
     background-image: linear-gradient(160deg, #3584e4 0%, #1a5fb4 55%, #0b3a80 100%);
 }
+picture.potd-picture {
+    border-radius: 0 12px 12px 0;
+}
 """
+
+# Size with the picture-of-the-day panel showing, and without it (list only).
+# The windowed size never exceeds the "with picture" size in either dimension.
+_SIZE_WITH_PICTURE = (1300, 700)
+_LIST_WIDTH_WITH_PICTURE = 460
+_SIZE_WITHOUT_PICTURE = (540, 630)
 
 
 def _install_gradient_css():
@@ -28,7 +37,6 @@ class PickerWindow(Adw.ApplicationWindow):
     def __init__(self, app, data):
         super().__init__(application=app, title="Launch Session")
         self.add_css_class("session-starter")
-        self.set_default_size(540, 630)
         self.data = data
         self.sessions = data["sessions"]
 
@@ -78,16 +86,46 @@ class PickerWindow(Adw.ApplicationWindow):
         self.stack = Gtk.Stack()
         self.stack.add_named(self.scroller, "sessions")
         self.stack.add_named(self.status_page, "empty")
-        self.toolbar_view.set_content(self.stack)
+
+        self.content_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.content_box.append(self.stack)
+        self.toolbar_view.set_content(self.content_box)
 
         self.set_content(self.toolbar_view)
         self.build_session_list()
+        self._setup_picture_panel()
 
         key_controller = Gtk.EventControllerKey()
         key_controller.connect("key-pressed", self.on_key_pressed)
         self.add_controller(key_controller)
 
         self.connect("map", self.on_map)
+
+    def _setup_picture_panel(self):
+        image_path = potd.cached_image_path()
+        if image_path is not None:
+            self.stack.set_hexpand(False)
+            self.stack.set_size_request(_LIST_WIDTH_WITH_PICTURE, -1)
+
+            picture = Gtk.Picture.new_for_filename(str(image_path))
+            picture.set_content_fit(Gtk.ContentFit.COVER)
+            picture.set_hexpand(True)
+            picture.set_vexpand(True)
+            picture.add_css_class("potd-picture")
+            self.content_box.append(picture)
+
+            self.set_default_size(*_SIZE_WITH_PICTURE)
+            # "No bigger than 1040x522" - the simplest way to guarantee that
+            # is to not let the window be resized past it.
+            self.set_resizable(False)
+        else:
+            self.stack.set_hexpand(True)
+            self.set_default_size(*_SIZE_WITHOUT_PICTURE)
+
+        # Kick off a background fetch for tomorrow's picture, if today's
+        # isn't already cached. This never blocks the window from showing
+        # or quitting - it's a detached subprocess, not work done here.
+        potd.request_refresh()
 
     def build_session_list(self):
         while (row := self.listbox.get_row_at_index(0)) is not None:
