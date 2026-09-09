@@ -52,9 +52,19 @@ class PreferencesWindow(Adw.Window):
         remove_session_btn = Gtk.Button(icon_name="list-remove-symbolic")
         remove_session_btn.set_tooltip_text("Delete session")
         remove_session_btn.connect("clicked", self.on_remove_session)
+        move_up_btn = Gtk.Button(icon_name="go-up-symbolic")
+        move_up_btn.set_tooltip_text("Move up")
+        move_up_btn.connect("clicked", self.on_move_session, -1)
+        move_down_btn = Gtk.Button(icon_name="go-down-symbolic")
+        move_down_btn.set_tooltip_text("Move down")
+        move_down_btn.connect("clicked", self.on_move_session, 1)
+        self.move_up_btn = move_up_btn
+        self.move_down_btn = move_down_btn
         session_toolbar.append(add_session_btn)
         session_toolbar.append(copy_session_btn)
         session_toolbar.append(remove_session_btn)
+        session_toolbar.append(move_up_btn)
+        session_toolbar.append(move_down_btn)
         left_box.append(session_toolbar)
 
         split.set_start_child(left_box)
@@ -183,6 +193,18 @@ class PreferencesWindow(Adw.Window):
         config.save(self.data)
         self.refresh_session_list()
 
+    def on_move_session(self, _button, direction):
+        if self.current_session is None:
+            return
+        sessions = self.data["sessions"]
+        index = sessions.index(self.current_session)
+        new_index = index + direction
+        if not (0 <= new_index < len(sessions)):
+            return
+        sessions[index], sessions[new_index] = sessions[new_index], sessions[index]
+        config.save(self.data)
+        self.refresh_session_list(select_name=self.current_session["name"])
+
     def _unique_name(self, base):
         existing = {s["name"] for s in self.data["sessions"]}
         if base not in existing:
@@ -196,9 +218,14 @@ class PreferencesWindow(Adw.Window):
         if row is None:
             self.current_session = None
             self.right_box.set_sensitive(False)
+            self.move_up_btn.set_sensitive(False)
+            self.move_down_btn.set_sensitive(False)
             return
         self.current_session = row.session
         self.right_box.set_sensitive(True)
+        index = row.get_index()
+        self.move_up_btn.set_sensitive(index > 0)
+        self.move_down_btn.set_sensitive(index < len(self.data["sessions"]) - 1)
         self.name_row.set_text(self.current_session["name"])
         self.default_check.set_active(
             self.data.get("default_session") == self.current_session["name"]
